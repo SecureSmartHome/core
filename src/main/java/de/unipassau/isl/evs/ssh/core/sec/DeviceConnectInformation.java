@@ -26,16 +26,6 @@
 
 package de.unipassau.isl.evs.ssh.core.sec;
 
-import android.content.Context;
-import android.graphics.Bitmap;
-import android.net.wifi.WifiInfo;
-import android.net.wifi.WifiManager;
-import android.support.annotation.NonNull;
-import android.support.annotation.Nullable;
-import android.text.format.Formatter;
-import android.util.Base64;
-import android.util.Log;
-
 import com.google.common.base.Charsets;
 import com.google.common.base.MoreObjects;
 import com.google.common.base.Strings;
@@ -43,22 +33,19 @@ import com.google.zxing.BarcodeFormat;
 import com.google.zxing.WriterException;
 import com.google.zxing.common.BitMatrix;
 import com.google.zxing.qrcode.QRCodeWriter;
-
-import java.io.IOException;
-import java.io.Serializable;
-import java.net.InetAddress;
-import java.net.NetworkInterface;
-import java.net.SocketException;
-import java.net.UnknownHostException;
-import java.security.SecureRandom;
-import java.util.Collections;
-import java.util.List;
-
 import de.unipassau.isl.evs.ssh.core.naming.DeviceID;
 import de.unipassau.isl.evs.ssh.core.network.Client;
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.ByteBufUtil;
 import io.netty.buffer.UnpooledByteBufAllocator;
+import org.apache.commons.codec.binary.Base64;
+import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
+
+import java.io.IOException;
+import java.io.Serializable;
+import java.net.InetAddress;
+import java.security.SecureRandom;
 
 import static io.netty.handler.codec.base64.Base64.decode;
 import static io.netty.handler.codec.base64.Base64.encode;
@@ -91,7 +78,6 @@ public class DeviceConnectInformation implements Serializable {
      */
     public static final int TOKEN_BASE64_LENGTH = encodeToken(new byte[TOKEN_LENGTH]).length();
     private static final int DATA_LENGTH = 4 + 2 + TOKEN_BASE64_LENGTH + DeviceID.ID_LENGTH;
-    private static final int BASE64_FLAGS = android.util.Base64.NO_WRAP;
     private static SecureRandom random = null;
     private final InetAddress address;
     private final int port;
@@ -148,55 +134,17 @@ public class DeviceConnectInformation implements Serializable {
         return token;
     }
 
-    @NonNull
-    public static String encodeToken(@NonNull byte[] token) {
-        return Base64.encodeToString(token, BASE64_FLAGS);
+    @NotNull
+    public static String encodeToken(@NotNull byte[] token) {
+        return Base64.encodeBase64String(token);
     }
 
-    @NonNull
+    @NotNull
     public static byte[] decodeToken(@Nullable String token) {
-        if (Strings.isNullOrEmpty(token)) return new byte[0];
-        return Base64.decode(token, BASE64_FLAGS);
-    }
-
-    /**
-     * Android has no uniform way of finding the IP address of the local device, so this first queries the WifiManager
-     * and afterwards tries to find a suitable NetworkInterface. If both fails, returns 0.0.0.0.
-     */
-    @SuppressWarnings({"unchecked", "deprecation"})
-    public static InetAddress findIPAddress(Context context) {
-        WifiManager wifiManager = ((WifiManager) context.getSystemService(Context.WIFI_SERVICE));
-        final WifiInfo connectionInfo = wifiManager.getConnectionInfo();
-        if (connectionInfo != null) {
-            try {
-                final InetAddress address = InetAddress.getByName(
-                        Formatter.formatIpAddress(connectionInfo.getIpAddress())
-                );
-                if (!address.isAnyLocalAddress()) {
-                    return address;
-                }
-            } catch (UnknownHostException e) {
-                Log.wtf(TAG, "Android API couldn't resolve the IP Address of the local device", e);
-            }
+        if (Strings.isNullOrEmpty(token)) {
+            return new byte[0];
         }
-        try {
-            List<NetworkInterface> interfaces = Collections.list(NetworkInterface.getNetworkInterfaces());
-            for (NetworkInterface intf : interfaces) {
-                List<InetAddress> addrs = Collections.list(intf.getInetAddresses());
-                for (InetAddress addr : addrs) {
-                    if (!addr.isLoopbackAddress() && !addr.isAnyLocalAddress() && addr.getAddress().length == ADDRESS_LENGTH) {
-                        return addr;
-                    }
-                }
-            }
-        } catch (SocketException e) {
-            Log.wtf(TAG, "Android API couldn't query own network interfaces", e);
-        }
-        try {
-            return InetAddress.getByAddress(new byte[ADDRESS_LENGTH]);
-        } catch (UnknownHostException e) {
-            throw new AssertionError("Could not resolve IP 0.0.0.0", e);
-        }
+        return Base64.decodeBase64(token);
     }
 
     public static String trimAddress(Object obj) {
@@ -240,27 +188,6 @@ public class DeviceConnectInformation implements Serializable {
      */
     public BitMatrix toQRBitMatrix() throws WriterException {
         return writer.encode(toDataString(), BarcodeFormat.QR_CODE, 0, 0);
-    }
-
-    /**
-     * Display the data of this Object as a QR Code
-     */
-    public Bitmap toQRBitmap(Bitmap.Config config, int onColor, int offColor) throws WriterException {
-        BitMatrix matrix = toQRBitMatrix();
-        final int width = matrix.getWidth();
-        final int height = matrix.getHeight();
-        final int[] pixels = new int[width * height];
-
-        for (int y = 0; y < height; y++) {
-            int offset = y * width;
-            for (int x = 0; x < width; x++) {
-                pixels[offset + x] = matrix.get(x, y) ? onColor : offColor;
-            }
-        }
-
-        Bitmap image = Bitmap.createBitmap(width, height, config);
-        image.setPixels(pixels, 0, width, 0, 0, width, height);
-        return image;
     }
 
     @Override

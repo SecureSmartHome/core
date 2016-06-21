@@ -26,7 +26,12 @@
 
 package de.unipassau.isl.evs.ssh.core.naming;
 
-import android.content.SharedPreferences;
+import de.ncoder.typedmap.Key;
+import de.unipassau.isl.evs.ssh.core.container.AbstractComponent;
+import de.unipassau.isl.evs.ssh.core.container.Container;
+import de.unipassau.isl.evs.ssh.core.container.ContainerService;
+import de.unipassau.isl.evs.ssh.core.sec.KeyStoreController;
+import org.jetbrains.annotations.NotNull;
 
 import java.security.KeyStoreException;
 import java.security.NoSuchAlgorithmException;
@@ -34,13 +39,6 @@ import java.security.PublicKey;
 import java.security.UnrecoverableEntryException;
 import java.security.cert.CertificateException;
 import java.security.cert.X509Certificate;
-
-import de.ncoder.typedmap.Key;
-import de.unipassau.isl.evs.ssh.core.container.AbstractComponent;
-import de.unipassau.isl.evs.ssh.core.container.Container;
-import de.unipassau.isl.evs.ssh.core.container.ContainerService;
-import de.unipassau.isl.evs.ssh.core.sec.KeyStoreController;
-import org.jetbrains.annotations.NotNull;
 
 /**
  * The NamingManager class maps certificates to IDs that are unique within the SecureSmartHome
@@ -108,11 +106,14 @@ public class NamingManager extends AbstractComponent {
         if (masterID == null) throw new NullPointerException("masterID");
         if (this.masterID != null) throw new IllegalStateException("masterID already known");
 
+        //TODO save MasterID to an application specific directory
+        /*
         requireComponent(ContainerService.KEY_CONTEXT)
                 .getSharedPreferences()
                 .edit()
                 .putString(PREF_MASTER_ID, masterID.getIDString())
                 .commit();
+                */
 
         this.masterID = masterID;
     }
@@ -123,7 +124,7 @@ public class NamingManager extends AbstractComponent {
      * @return the master's certificate
      * @throws IllegalStateException if the Master Certificate is not known
      */
-    @NonNull
+    @NotNull
     public X509Certificate getMasterCertificate() {
         if (masterCert == null) {
             try {
@@ -200,7 +201,7 @@ public class NamingManager extends AbstractComponent {
      *
      * @return the id of the local device
      */
-    @NonNull
+    @NotNull
     public DeviceID getOwnID() {
         return ownID;
     }
@@ -210,7 +211,7 @@ public class NamingManager extends AbstractComponent {
      *
      * @return the local devices's certificate
      */
-    @NonNull
+    @NotNull
     public X509Certificate getOwnCertificate() {
         return ownCert;
     }
@@ -222,7 +223,7 @@ public class NamingManager extends AbstractComponent {
      * @return the publicKey of the given DeviceID
      * @throws UnresolvableNamingException if the query fails
      */
-    @NonNull
+    @NotNull
     public PublicKey getPublicKey(DeviceID id) throws UnresolvableNamingException {
         return getCertificate(id).getPublicKey();
     }
@@ -234,7 +235,7 @@ public class NamingManager extends AbstractComponent {
      * @return the certificate of the given DeviceID
      * @throws UnresolvableNamingException if the query fails
      */
-    @NonNull
+    @NotNull
     public X509Certificate getCertificate(DeviceID id) throws UnresolvableNamingException {
         try {
             if (id == null) {
@@ -272,6 +273,9 @@ public class NamingManager extends AbstractComponent {
     }
 
     private void loadMasterData() throws UnresolvableNamingException {
+        //TODO write master data to an application specific directory
+
+        /*
         final SharedPreferences prefs = requireComponent(ContainerService.KEY_CONTEXT).getSharedPreferences();
 
         String masterIDStr = prefs.getString(PREF_MASTER_ID, null);
@@ -279,6 +283,7 @@ public class NamingManager extends AbstractComponent {
             masterID = new DeviceID(masterIDStr);
             masterCert = getCertificate(masterID);
         }
+        */
     }
 
     @Override

@@ -26,20 +26,15 @@
 
 package de.unipassau.isl.evs.ssh.core.sec;
 
-import android.content.Context;
-import android.content.res.Resources;
-import android.support.annotation.NonNull;
-import android.support.annotation.Nullable;
-
 import com.google.common.base.Predicate;
 import com.google.common.collect.Iterables;
+import de.unipassau.isl.evs.ssh.core.CoreConstants;
+import org.jetbrains.annotations.Nullable;
 
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
-
-import de.unipassau.isl.evs.ssh.core.CoreConstants;
 
 /**
  * All Permissions that can be granted to a UserDevice and which a required for executing certain actions,
@@ -156,29 +151,4 @@ public enum Permission {
         return isTernary;
     }
 
-    /**
-     * @return the localized Name of this Permission as defined in the strings.xml for the current locale.
-     * The identifier of the String constant is the lower case name of the enum constant with the prefix "perm_",
-     * so for {@link #ADD_ODROID} it would be "perm_add_odroid".
-     * If no localized name is found, the name of the constant as defined in the source code is used ({@link #name()}).
-     */
-    @NonNull
-    public String toLocalizedString(Context context) {
-        Resources res = context.getResources();
-        int resId = res.getIdentifier("perm_" + this.name().toLowerCase(), "string", context.getPackageName());
-        return resId == 0 ? name() : res.getString(resId);
-    }
-
-    /**
-     * @return the localized description of this Permission as defined in the strings.xml for the current locale.
-     * The identifier of the String constant is the lower case name of the enum constant with the prefix "perm_desc_",
-     * so for {@link #ADD_ODROID} it would be "perm_desc_add_odroid".
-     * If no localized description is found, the empty String is returned.
-     */
-    @NonNull
-    public String getLocalizedDescription(Context context) {
-        Resources res = context.getResources();
-        int resId = res.getIdentifier("perm_desc_" + this.name().toLowerCase(), "string", context.getPackageName());
-        return resId == 0 ? "" : res.getString(resId);
-    }
 }

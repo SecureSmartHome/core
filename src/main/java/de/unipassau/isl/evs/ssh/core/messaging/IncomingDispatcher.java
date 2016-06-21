@@ -57,7 +57,6 @@ import static de.unipassau.isl.evs.ssh.core.CoreConstants.NettyConstants.ATTR_PE
  */
 @ChannelHandler.Sharable
 public class IncomingDispatcher extends ChannelHandlerAdapter implements Component {
-    private static final String TAG = IncomingDispatcher.class.getSimpleName();
     public static final Key<IncomingDispatcher> KEY = new Key<>(IncomingDispatcher.class);
 
     private final SetMultimap<RoutingKey, MessageHandler> mappings = HashMultimap.create();

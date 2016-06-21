@@ -26,21 +26,9 @@
 
 package de.unipassau.isl.evs.ssh.core.network;
 
-import android.content.Context;
-import android.net.wifi.WifiManager;
-import android.util.Log;
-
-import java.net.InetAddress;
-import java.net.InetSocketAddress;
-import java.security.GeneralSecurityException;
-import java.security.Signature;
-import java.util.concurrent.Callable;
-import java.util.concurrent.TimeUnit;
-
 import de.ncoder.typedmap.Key;
 import de.unipassau.isl.evs.ssh.core.CoreConstants;
 import de.unipassau.isl.evs.ssh.core.container.AbstractComponent;
-import de.unipassau.isl.evs.ssh.core.container.ContainerService;
 import de.unipassau.isl.evs.ssh.core.naming.NamingManager;
 import de.unipassau.isl.evs.ssh.core.schedule.ExecutionServiceComponent;
 import io.netty.bootstrap.Bootstrap;
@@ -55,6 +43,15 @@ import io.netty.util.ReferenceCountUtil;
 import io.netty.util.concurrent.Future;
 import io.netty.util.concurrent.FutureListener;
 import io.netty.util.concurrent.ScheduledFuture;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import java.net.InetAddress;
+import java.net.InetSocketAddress;
+import java.security.GeneralSecurityException;
+import java.security.Signature;
+import java.util.concurrent.Callable;
+import java.util.concurrent.TimeUnit;
 
 import static de.unipassau.isl.evs.ssh.core.CoreConstants.NettyConstants.DISCOVERY_HOST;
 import static de.unipassau.isl.evs.ssh.core.CoreConstants.NettyConstants.DISCOVERY_PAYLOAD_REQUEST;
@@ -70,7 +67,7 @@ import static de.unipassau.isl.evs.ssh.core.CoreConstants.NettyConstants.DISCOVE
 public class UDPDiscoveryClient extends AbstractComponent {
     public static final Key<UDPDiscoveryClient> KEY = new Key<>(UDPDiscoveryClient.class);
 
-    private static final String TAG = UDPDiscoveryClient.class.getSimpleName();
+    private final Logger logger = LoggerFactory.getLogger(getClass());
 
     /**
      * The maximum number of seconds the broadcast waits to be sent again.
@@ -81,10 +78,6 @@ public class UDPDiscoveryClient extends AbstractComponent {
      * The channel listening for incoming UDP packets.
      */
     private ChannelFuture channel;
-    /**
-     * The lock used to prevent android from hibernating the network Stack while UDP discovery is running.
-     */
-    private WifiManager.MulticastLock multicastLock;
     /**
      * A boolean indicating when the discovery has been started using {@link #startDiscovery(long)} and no new Master has been
      * found or {@link #stopDiscovery()} has been called.
@@ -110,18 +103,9 @@ public class UDPDiscoveryClient extends AbstractComponent {
         } else {
             this.timeout = 0;
         }
-        Log.i(TAG, "startDiscovery, " + (isDiscoveryRunning ? "already" : "currently not") + " running with timeout " + timeout);
+        logger.info("startDiscovery, " + (isDiscoveryRunning ? "already" : "currently not") + " running with timeout " + timeout);
         if (!isDiscoveryRunning) {
             isDiscoveryRunning = true;
-
-            // Acquire lock
-            if (multicastLock == null) {
-                final WifiManager wifi = (WifiManager) requireComponent(ContainerService.KEY_CONTEXT)
-                        .getSystemService(Context.WIFI_SERVICE);
-                multicastLock = wifi.createMulticastLock(getClass().getSimpleName());
-                multicastLock.setReferenceCounted(false);
-            }
-            multicastLock.acquire();
 
             // Setup UDP Channel
             if (channel == null) {
@@ -144,18 +128,18 @@ public class UDPDiscoveryClient extends AbstractComponent {
      * @return the Future returned by {@link io.netty.channel.EventLoop#schedule(Callable, long, TimeUnit)}
      */
     private synchronized ScheduledFuture<?> scheduleDiscoveryRetry() {
-        Log.v(TAG, "scheduleDiscoveryRetry()");
+        logger.debug("scheduleDiscoveryRetry()");
         // don't schedule a second execution if one is already pending
         final boolean isExecutionPending = retryFuture != null && !retryFuture.isDone();
         if (isDiscoveryRunning && !isExecutionPending) {
             if (requireComponent(Client.KEY).isChannelOpen() && timeout == 0) {
-                Log.d(TAG, "scheduleDiscoveryRetry() running indefinitely, but Client Channel is open. Was stopDiscovery called?");
+                logger.debug("scheduleDiscoveryRetry() running indefinitely, but Client Channel is open. Was stopDiscovery called?");
             }
             retryFuture = requireComponent(ExecutionServiceComponent.KEY).schedule(new Runnable() {
                 @Override
                 public void run() {
                     if (timeout > 0 && System.currentTimeMillis() > timeout) {
-                        Log.i(TAG, "Stopping discovery after timeout");
+                        logger.info("Stopping discovery after timeout");
                         stopDiscovery();
                     }
                     if (isDiscoveryRunning) {
@@ -172,12 +156,12 @@ public class UDPDiscoveryClient extends AbstractComponent {
                 @Override
                 public void operationComplete(Future future) throws Exception {
                     if (!future.isSuccess()) {
-                        Log.w(TAG, "Could not reschedule execution of UDP discovery", future.cause());
+                        logger.warn("Could not reschedule execution of UDP discovery", future.cause());
                     }
                 }
             });
         } else {
-            Log.d(TAG, "not scheduling another retry because " +
+            logger.debug("not scheduling another retry because " +
                     "isDiscoveryRunning = " + isDiscoveryRunning +
                     ", retryFuture = " + retryFuture);
         }
@@ -188,17 +172,11 @@ public class UDPDiscoveryClient extends AbstractComponent {
      * Stop the discovery and cancel all pending discovery requests.
      */
     public void stopDiscovery() {
-        Log.d(TAG, "stopDiscovery " + (isDiscoveryRunning ? "currently running" : ""));
+        logger.debug("stopDiscovery " + (isDiscoveryRunning ? "currently running" : ""));
         isDiscoveryRunning = false;
         timeout = 0;
         if (retryFuture != null && !retryFuture.isDone()) {
             retryFuture.cancel(true);
-        }
-        if (multicastLock != null) {
-            if (multicastLock.isHeld()) {
-                multicastLock.release();
-            }
-            multicastLock = null;
         }
     }
 
@@ -212,9 +190,9 @@ public class UDPDiscoveryClient extends AbstractComponent {
     private ChannelFuture sendDiscoveryRequest() {
         final NamingManager namingManager = requireComponent(NamingManager.KEY);
         if (namingManager.isMasterIDKnown()) {
-            Log.v(TAG, "sendDiscoveryRequest looking for Master " + namingManager.getMasterID());
+            logger.debug("sendDiscoveryRequest looking for Master " + namingManager.getMasterID());
         } else {
-            Log.v(TAG, "sendDiscoveryRequest looking for any Master");
+            logger.debug("sendDiscoveryRequest looking for any Master");
         }
 
         final byte[] header = DISCOVERY_PAYLOAD_REQUEST.getBytes();
@@ -263,16 +241,16 @@ public class UDPDiscoveryClient extends AbstractComponent {
                     final int dataEnd = buffer.readerIndex();
                     if (checkSignature(buffer, dataStart, dataEnd)) {
                         // got a new address for the master!
-                        Log.i(TAG, "UDP response received " + socketAddress);
+                        logger.info("UDP response received " + socketAddress);
                         stopDiscovery();
                         requireComponent(Client.KEY).onMasterFound(socketAddress);
                     } else {
-                        Log.i(TAG, "UDP response received " + socketAddress
+                        logger.info("UDP response received " + socketAddress
                                 + ", but signature is invalid");
                     }
                 } else if (!DISCOVERY_PAYLOAD_REQUEST.equals(messageType)) {
                     //discard own requests that are echoed by the router and requests sent by other clients and warn about all other packets
-                    Log.d(TAG, "Discarding UDP packet with illegal message type: " + messageType);
+                    logger.debug("Discarding UDP packet with illegal message type: " + messageType);
                 }
             } finally {
                 ReferenceCountUtil.release(msg);
@@ -292,7 +270,7 @@ public class UDPDiscoveryClient extends AbstractComponent {
                     return true; //trust for now until I received the master cert matching my Master's ID
                 }
             } catch (GeneralSecurityException e) {
-                Log.w(TAG, "Could not validate signature", e);
+                logger.warn("Could not validate signature", e);
                 return false;
             }
         }

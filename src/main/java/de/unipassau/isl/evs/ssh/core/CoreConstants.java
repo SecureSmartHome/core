@@ -26,11 +26,6 @@
 
 package de.unipassau.isl.evs.ssh.core;
 
-import android.content.Context;
-import android.content.Intent;
-
-import java.security.cert.X509Certificate;
-
 import de.unipassau.isl.evs.ssh.core.database.dto.ModuleAccessPoint.GPIOAccessPoint;
 import de.unipassau.isl.evs.ssh.core.database.dto.ModuleAccessPoint.MockAccessPoint;
 import de.unipassau.isl.evs.ssh.core.database.dto.ModuleAccessPoint.ModuleAccessPoint;
@@ -39,6 +34,8 @@ import de.unipassau.isl.evs.ssh.core.database.dto.ModuleAccessPoint.WLANAccessPo
 import de.unipassau.isl.evs.ssh.core.naming.DeviceID;
 import io.netty.util.AttributeKey;
 import io.netty.util.ResourceLeakDetector;
+
+import java.security.cert.X509Certificate;
 
 /**
  * This Constants class provides constants needed by all modules.
@@ -96,8 +93,9 @@ public enum CoreConstants {
         /**
          * ResourceLeakDetector used for unreleased Netty Buffers
          */
-        public static final ResourceLeakDetector.Level RESOURCE_LEAK_DETECTION =
-                BuildConfig.DEBUG ? ResourceLeakDetector.Level.PARANOID : ResourceLeakDetector.Level.SIMPLE;
+        public static final ResourceLeakDetector.Level RESOURCE_LEAK_DETECTION = ResourceLeakDetector.Level.PARANOID;
+        //TODO set it based on buildconfig via gradle plugin
+        //BuildConfig.DEBUG ? ResourceLeakDetector.Level.PARANOID : ResourceLeakDetector.Level.SIMPLE;
 
         /**
          * Protocol identifier for the discovery protocol so that only devices which also understand each other can find
@@ -143,22 +141,18 @@ public enum CoreConstants {
      * This class contains constants for ModuleTypes
      */
     public enum ModuleType {
-        Light(R.string.module_type_light),
-        WeatherBoard(R.string.module_type_weather_board),
-        DoorBuzzer(R.string.module_type_door_buzzer),
-        DoorSensor(R.string.module_type_door_sensor),
-        WindowSensor(R.string.module_type_window_sensor),
-        Webcam(R.string.module_type_webcam),
-        Doorbell(R.string.module_type_doorbell);
+        Light("Light"),
+        WeatherBoard("WeatherBorad"),
+        DoorBuzzer("DoorBuzzer"),
+        DoorSensor("DoorSensor"),
+        WindowSensor("WindowSensor"),
+        Webcam("Webcam"),
+        Doorbell("Doorbell");
 
-        private final int resID;
+        private final String name;
 
-        ModuleType(int resID) {
-            this.resID = resID;
-        }
-
-        public String toLocalizedString(Context ctx) {
-            return ctx.getResources().getString(this.resID);
+        ModuleType(String name) {
+            this.name = name;
         }
 
         public boolean isValidAccessPoint(ModuleAccessPoint accessPoint) {
@@ -207,11 +201,6 @@ public enum CoreConstants {
         public static final int QR_CODE_IMAGE_SCALE = 35;
 
         public static final int REQUEST_CODE_SCAN_QR = 1;
-        public static final Intent ZXING_SCAN_INTENT = new Intent("com.google.zxing.client.android.SCAN");
         public static final String ZXING_SCAN_RESULT = "SCAN_RESULT";
-
-        static {
-            ZXING_SCAN_INTENT.putExtra("SCAN_MODE", "QR_CODE_MODE");
-        }
     }
 }

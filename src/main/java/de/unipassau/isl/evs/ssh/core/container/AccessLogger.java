@@ -26,8 +26,11 @@
 
 package de.unipassau.isl.evs.ssh.core.container;
 
-import android.content.Context;
-import android.util.Log;
+import de.ncoder.typedmap.Key;
+import de.unipassau.isl.evs.ssh.core.schedule.ExecutionServiceComponent;
+import io.netty.channel.EventLoop;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.File;
 import java.io.FileWriter;
@@ -38,39 +41,32 @@ import java.util.Date;
 import java.util.HashSet;
 import java.util.Set;
 
-import de.ncoder.typedmap.Key;
-import de.unipassau.isl.evs.ssh.core.schedule.ExecutionServiceComponent;
-import io.netty.channel.EventLoop;
-
 /**
  * @author Niko Fink
  */
 public class AccessLogger extends AbstractComponent {
-    private static final String TAG = AccessLogger.class.getSimpleName();
     public static final Key<AccessLogger> KEY = new Key<>(AccessLogger.class);
     private final Set<Integer> knownStackTraces = new HashSet<>();
+    private final Logger logger = LoggerFactory.getLogger(getClass());
     private Writer writer;
     private EventLoop eventLoop;
+    private static final String APP_NAME = "SecureSmartHome";
 
     @Override
     public void init(Container container) {
+        //TODO get file location from config
         super.init(container);
-        final Context context = requireComponent(ContainerService.KEY_CONTEXT);
-        final String name = context.getPackageName() + "-access.log";
-        File dir = context.getExternalFilesDir(null);
-        if (dir == null) {
-            dir = context.getFilesDir();
-        }
-        final File file = new File(dir, name);
+        final String name = APP_NAME + "-access.log";
+        final File file = new File("/tmp", name);
         try {
             writer = new FileWriter(file, true);
             writer.append("\n===============================================================================\n")
-                    .append("Logging for ").append(context.getPackageName())
+                    .append("Logging for ").append(APP_NAME)
                     .append(" started at ").append(new Date().toString()).append("\n");
-            Log.i(TAG, "Logging to " + file);
+            logger.info("Logging to " + file);
             eventLoop = requireComponent(ExecutionServiceComponent.KEY).next();
         } catch (IOException e) {
-            Log.w(TAG, "Could not open FileOutputStream to " + file, e);
+            logger.error("Could not open FileOutputStream to " + file, e);
         }
     }
 
@@ -81,7 +77,7 @@ public class AccessLogger extends AbstractComponent {
                 writer.append("Log closed at").append(new Date().toString()).append("\n");
                 writer.close();
             } catch (IOException e) {
-                Log.w(TAG, "Could not close FileOutputStream", e);
+                logger.warn("Could not close FileOutputStream", e);
             }
         }
         super.destroy();

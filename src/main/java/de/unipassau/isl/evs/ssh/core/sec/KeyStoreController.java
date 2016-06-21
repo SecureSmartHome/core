@@ -26,17 +26,20 @@
 
 package de.unipassau.isl.evs.ssh.core.sec;
 
-import android.content.Context;
-import android.provider.Settings.Secure;
-import android.support.annotation.NonNull;
-import android.support.annotation.Nullable;
-import android.telephony.TelephonyManager;
-import android.util.Base64;
-import android.util.Log;
-
+import de.ncoder.typedmap.Key;
+import de.unipassau.isl.evs.ssh.core.CoreConfiguration;
+import de.unipassau.isl.evs.ssh.core.container.AbstractComponent;
+import de.unipassau.isl.evs.ssh.core.container.Container;
+import de.unipassau.isl.evs.ssh.core.container.StartupException;
+import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.spongycastle.x509.X509V3CertificateGenerator;
 
+import javax.security.auth.x500.X500Principal;
 import java.io.File;
+import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.math.BigInteger;
@@ -46,7 +49,6 @@ import java.security.KeyPair;
 import java.security.KeyPairGenerator;
 import java.security.KeyStore;
 import java.security.KeyStoreException;
-import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.security.PrivateKey;
 import java.security.Security;
@@ -60,14 +62,6 @@ import java.util.Calendar;
 import java.util.Collections;
 import java.util.Date;
 import java.util.List;
-
-import javax.security.auth.x500.X500Principal;
-
-import de.ncoder.typedmap.Key;
-import de.unipassau.isl.evs.ssh.core.container.AbstractComponent;
-import de.unipassau.isl.evs.ssh.core.container.Container;
-import de.unipassau.isl.evs.ssh.core.container.ContainerService;
-import de.unipassau.isl.evs.ssh.core.container.StartupException;
 
 /**
  * The KeyStoreController controls the KeyStore which can load and store keys and provides Key generation.
@@ -86,6 +80,7 @@ public class KeyStoreController extends AbstractComponent {
     private static final String PUBLIC_KEY_PREFIX = "public_key:";
     private static final int ASYMMETRIC_KEY_SIZE = 256;
     private static final String PASSWORD_MD = "SHA-256";
+    private final Logger logger = LoggerFactory.getLogger(getClass());
 
     static {
         Security.insertProviderAt(new org.spongycastle.jce.provider.BouncyCastleProvider(), 1);
@@ -93,6 +88,7 @@ public class KeyStoreController extends AbstractComponent {
 
     private KeyStore keyStore;
     private File keyStoreFile;
+    private String keyStorePassword;
 
     /**
      * This functions allows the Container to initialize the OdroidKeyStoreController.
@@ -104,13 +100,14 @@ public class KeyStoreController extends AbstractComponent {
     public void init(Container container) {
         super.init(container);
         try {
+            CoreConfiguration config = container.require(CoreConfiguration.KEY);
+            this.keyStorePassword = config.getKeyStorePassword();
+            keyStoreFile = new File(config.getKeyStorePath());
             keyStore = KeyStore.getInstance(KEYSTORE_TYPE);
 
-            Context containerServiceContext = container.require(ContainerService.KEY_CONTEXT);
-            keyStoreFile = containerServiceContext.getFileStreamPath(KEYSTORE_FILENAME);
             if (keyStoreFile.exists()) {
                 char[] keyStorePassword = getKeystorePassword();
-                keyStore.load(containerServiceContext.openFileInput(KEYSTORE_FILENAME), keyStorePassword);
+                keyStore.load(new FileInputStream(keyStoreFile), keyStorePassword);
                 Arrays.fill(keyStorePassword, (char) 0);
             } else {
                 keyStore.load(null);
@@ -129,7 +126,7 @@ public class KeyStoreController extends AbstractComponent {
      *
      * @return PrivateKey of this device
      */
-    @NonNull
+    @NotNull
     public PrivateKey getOwnPrivateKey() {
         try {
             final KeyStore.Entry key = loadKey(LOCAL_PRIVATE_KEY_ALIAS);
@@ -149,7 +146,7 @@ public class KeyStoreController extends AbstractComponent {
      *
      * @return PrivateKey of this device
      */
-    @NonNull
+    @NotNull
     public X509Certificate getOwnCertificate() {
         try {
             final KeyStore.Entry key = loadKey(LOCAL_PRIVATE_KEY_ALIAS);
@@ -255,7 +252,7 @@ public class KeyStoreController extends AbstractComponent {
             //see org.spongycastle.jcajce.provider.asymmetric.EC.Mappings.configure(ConfigurableProvider), line 52:
             //     "KeyPairGenerator.ECIES" -> "KeyPairGeneratorSpi$ECDH"
             keyPairAlgorithm = "EC";
-            Log.w(KeyStoreController.class.getSimpleName(), "Using 'EC' instead of '" + keyPairAlgorithm
+            logger.warn(KeyStoreController.class.getSimpleName(), "Using 'EC' instead of '" + keyPairAlgorithm
                     + "' to circumvent wrong BouncyCastle mappings");
         } else {
             keyPairAlgorithm = ASYMMETRIC_KEY_ALGORITHM;
@@ -307,6 +304,11 @@ public class KeyStoreController extends AbstractComponent {
     }
 
     private char[] getPassword(String salt) throws NoSuchAlgorithmException {
+        return keyStorePassword.toCharArray();
+
+
+        //TODO find a better way to handle the keystore password. Generating it from machine specific data breaks migration.
+        /*
         TelephonyManager telephonyManager = (TelephonyManager) requireComponent(ContainerService.KEY_CONTEXT)
                 .getSystemService(Context.TELEPHONY_SERVICE);
 
@@ -319,5 +321,6 @@ public class KeyStoreController extends AbstractComponent {
         )).getBytes());
         md.update(String.valueOf(salt).getBytes());
         return Base64.encodeToString(md.digest(), Base64.NO_WRAP).toCharArray();
+        */
     }
 }

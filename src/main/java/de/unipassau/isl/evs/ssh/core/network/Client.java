@@ -64,6 +64,8 @@ import io.netty.util.concurrent.FutureListener;
 import io.netty.util.internal.logging.InternalLogger;
 import io.netty.util.internal.logging.InternalLoggerFactory;
 import io.netty.util.internal.logging.Slf4JLoggerFactory;
+import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
 import static de.unipassau.isl.evs.ssh.core.CoreConstants.NettyConstants.ATTR_HANDSHAKE_FINISHED;
 import static de.unipassau.isl.evs.ssh.core.CoreConstants.NettyConstants.ATTR_LOCAL_CONNECTION;
@@ -298,7 +300,7 @@ public class Client extends AbstractComponent {
      *
      * @return the ClientHandshakeHandler to use
      */
-    @NonNull
+    @NotNull
     protected ChannelHandler getHandshakeHandler() {
         return new ClientHandshakeHandler(getContainer());
     }
