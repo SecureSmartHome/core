@@ -26,22 +26,6 @@
 
 package de.unipassau.isl.evs.ssh.core.network;
 
-import android.content.BroadcastReceiver;
-import android.content.Context;
-import android.content.Intent;
-import android.content.IntentFilter;
-import android.content.SharedPreferences;
-import android.net.ConnectivityManager;
-import android.net.wifi.WifiManager;
-import android.support.annotation.NonNull;
-import android.support.annotation.Nullable;
-import android.util.Log;
-
-import java.net.InetSocketAddress;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.concurrent.TimeUnit;
-
 import de.ncoder.typedmap.Key;
 import de.unipassau.isl.evs.ssh.core.CoreConstants;
 import de.unipassau.isl.evs.ssh.core.container.AbstractComponent;
@@ -66,6 +50,13 @@ import io.netty.util.internal.logging.InternalLoggerFactory;
 import io.netty.util.internal.logging.Slf4JLoggerFactory;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import java.net.InetSocketAddress;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.concurrent.TimeUnit;
 
 import static de.unipassau.isl.evs.ssh.core.CoreConstants.NettyConstants.ATTR_HANDSHAKE_FINISHED;
 import static de.unipassau.isl.evs.ssh.core.CoreConstants.NettyConstants.ATTR_LOCAL_CONNECTION;
@@ -86,6 +77,7 @@ public class Client extends AbstractComponent {
     static final String LAST_PORT = Client.class.getName() + ".LAST_PORT";
     static final String PREF_HOST = Client.class.getName() + ".PREF_HOST";
     static final String PREF_PORT = Client.class.getName() + ".PREF_PORT";
+    private final Logger logger = LoggerFactory.getLogger(getClass());
     private static final String TAG = Client.class.getSimpleName();
 
     /**
@@ -100,6 +92,7 @@ public class Client extends AbstractComponent {
     /**
      * An Android BroadcastReceiver that is notified once the Phone connects to or is disconnected from a WiFi network.
      */
+    /*
     private final BroadcastReceiver broadcastReceiver = new BroadcastReceiver() {
         @Override
         public void onReceive(Context context, Intent intent) {
@@ -112,11 +105,12 @@ public class Client extends AbstractComponent {
                 } else {
                     timeout = 0;
                 }
-                Log.d(TAG, (connectionEstablished ? "Rescanning" : "Scanning") + " network for possible local connections after NetworkInfo change: " + intent);
+                logger.debug((connectionEstablished ? "Rescanning" : "Scanning") + " network for possible local connections after NetworkInfo change: " + intent);
                 requireComponent(UDPDiscoveryClient.KEY).startDiscovery(timeout);
             }
         }
     };
+    */
     /**
      * The channel listening for incoming TCP connections on the port of the client.
      * Use {@link ChannelFuture#sync()} to wait for client startup.
@@ -155,31 +149,24 @@ public class Client extends AbstractComponent {
         // And try to connect
         isActive = true;
         initClient();
-        // register BroadcastListener
-        IntentFilter filter = new IntentFilter();
-        filter.addAction(WifiManager.SUPPLICANT_CONNECTION_CHANGE_ACTION);
-        filter.addAction(WifiManager.NETWORK_STATE_CHANGED_ACTION);
-        filter.addAction(WifiManager.WIFI_STATE_CHANGED_ACTION);
-        filter.addAction(ConnectivityManager.CONNECTIVITY_ACTION);
-        requireComponent(ContainerService.KEY_CONTEXT).registerReceiver(broadcastReceiver, filter);
     }
 
     /**
      * Initializes the netty client and tries to connect to the server.
      */
     protected synchronized void initClient() {
-        Log.d(TAG, "initClient");
+        logger.debug("initClient");
         if (!isActive) {
-            Log.w(TAG, "Not starting Client that has been explicitly shut-down");
+            logger.warn("Not starting Client that has been explicitly shut-down");
             return;
         }
         if (isChannelOpen()) {
-            Log.w(TAG, "Not starting Client that is already connected");
+            logger.warn("Not starting Client that is already connected");
             return;
         } else {
             // Close channels open from previous connections
             if (channelFuture != null && channelFuture.channel() != null) {
-                Log.v(TAG, "Cleaning up " + (channelFuture.channel().isOpen() ? "open" : "closed")
+                logger.debug("Cleaning up " + (channelFuture.channel().isOpen() ? "open" : "closed")
                         + " Channel from previous connection attempt");
                 channelFuture.channel().close();
             }
@@ -198,7 +185,7 @@ public class Client extends AbstractComponent {
             @Override
             public void operationComplete(Future future) throws Exception {
                 if (!future.isSuccess()) {
-                    Log.w(TAG, "Could not schedule connect to master", future.cause());
+                    logger.warn("Could not schedule connect to master", future.cause());
                 }
             }
         });
@@ -230,9 +217,9 @@ public class Client extends AbstractComponent {
             connectClient(address);
         } else {
             if (address == null) {
-                Log.w(TAG, "No master known, starting UDP discovery");
+                logger.warn("No master known, starting UDP discovery");
             } else {
-                Log.w(TAG, "Too many disconnects from " + address + ", trying UDP discovery");
+                logger.warn("Too many disconnects from " + address + ", trying UDP discovery");
             }
             requireComponent(UDPDiscoveryClient.KEY).startDiscovery(0);
         }
@@ -255,7 +242,7 @@ public class Client extends AbstractComponent {
      * switches to searching the master via UDP discovery using the {@link UDPDiscoveryClient}.
      */
     private void connectClient(InetSocketAddress address) {
-        Log.i(TAG, "Client connecting to " + address);
+        logger.info("Client connecting to " + address);
         notifyClientConnecting(address.getHostString(), address.getPort());
 
         // TCP Connection
@@ -275,10 +262,10 @@ public class Client extends AbstractComponent {
             @Override
             public void operationComplete(ChannelFuture future) throws Exception {
                 if (future.isSuccess()) {
-                    Log.v(TAG, "Channel open");
+                    logger.debug("Channel open");
                     channelOpen(future.channel());
                 } else {
-                    Log.v(TAG, "Channel open failed");
+                    logger.debug("Channel open failed");
                     channelClosed(future.channel());
                 }
             }
@@ -289,7 +276,7 @@ public class Client extends AbstractComponent {
              */
             @Override
             public void operationComplete(ChannelFuture future) throws Exception {
-                Log.v(TAG, "Channel closed");
+                logger.debug("Channel closed");
                 channelClosed(future.channel());
             }
         });
@@ -333,15 +320,15 @@ public class Client extends AbstractComponent {
                 // if the last disconnect was in the near past, increment the counter of disconnects in a row
                 lastDisconnect = time;
                 disconnectsInARow++;
-                Log.w(TAG, disconnectsInARow + ". disconnect within the last " + diff + "ms, retrying");
+                logger.warn(disconnectsInARow + ". disconnect within the last " + diff + "ms, retrying");
             } else {
                 // otherwise just retry
                 lastDisconnect = time;
-                Log.i(TAG, "First disconnect recently, retrying");
+                logger.info("First disconnect recently, retrying");
             }
             initClient();
         } else {
-            Log.i(TAG, "Client disconnected, but not restarting because destroy() has been called");
+            logger.info("Client disconnected, but not restarting because destroy() has been called");
         }
     }
 
@@ -358,7 +345,7 @@ public class Client extends AbstractComponent {
      * Saves the new address.
      */
     public void onMasterFound(InetSocketAddress address, String token) {
-        Log.i(TAG, "discovery successful, found " + address + " with token " + token);
+        logger.info("discovery successful, found " + address + " with token " + token);
         final PrefEditor editor = editPrefs().setLastAddress(address);
         if (token != null) {
             editor.setActiveRegistrationToken(token);
@@ -368,7 +355,7 @@ public class Client extends AbstractComponent {
     }
 
     public void onMasterConfigured(InetSocketAddress address) {
-        Log.i(TAG, "master configured as " + address);
+        logger.info("master configured as " + address);
         editPrefs().setConfiguredAddress(address).commit();
         addressChanged(address);
     }
@@ -378,7 +365,7 @@ public class Client extends AbstractComponent {
         disconnectsInARow = 0;
         notifyMasterFound();
         if (!address.equals(getAddress()) && channelFuture != null) {
-            Log.i(TAG, "Found new address, closing old connection " + channelFuture.channel());
+            logger.info("Found new address, closing old connection " + channelFuture.channel());
             channelFuture.channel().close(); //close the current connection if a new address was found
         }
         initClient();
@@ -390,12 +377,11 @@ public class Client extends AbstractComponent {
      * Stop listening, close all connections and shut down the executors.
      */
     public void destroy() {
-        Log.d(TAG, "stopClient");
+        logger.debug("stopClient");
         isActive = false;
         if (channelFuture != null && channelFuture.channel() != null) {
             channelFuture.channel().close();
         }
-        requireComponent(ContainerService.KEY_CONTEXT).unregisterReceiver(broadcastReceiver);
         super.destroy();
     }
 
