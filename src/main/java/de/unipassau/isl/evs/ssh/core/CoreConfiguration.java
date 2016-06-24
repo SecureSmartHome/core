@@ -38,7 +38,7 @@ public class CoreConfiguration extends AbstractComponent {
         return password != null ? password : "34r4oikj4oij239";
     }
 
-    public String getKeyStorePath(){
+    public String getKeyStorePath() {
         String path = null;
 
         try {
@@ -49,6 +49,14 @@ public class CoreConfiguration extends AbstractComponent {
 
         return path != null ? path : "/var/lib/SecureSmartHome/keystore";
 
+    }
+
+    public String getLocation() {
+        try {
+            return config.getSection("Settings").getString("location");
+        } catch (NoSuchElementException e) {
+            return null;
+        }
     }
 
 }
