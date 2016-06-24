@@ -67,6 +67,10 @@ public class HolidayAction {
         return moduleName;
     }
 
+    /**
+     * Gets the timestamp in milliseconds.
+     * @return the timestamp in milliseconds
+     */
     public long getTimeStamp() {
         return timeStamp;
     }

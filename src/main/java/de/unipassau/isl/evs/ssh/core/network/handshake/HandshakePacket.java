@@ -26,18 +26,16 @@
 
 package de.unipassau.isl.evs.ssh.core.network.handshake;
 
-import android.support.annotation.Nullable;
 
 import com.google.common.base.MoreObjects;
+import org.jetbrains.annotations.Nullable;
 
 import java.io.Serializable;
 import java.security.cert.X509Certificate;
 import java.util.Arrays;
 
-import de.unipassau.isl.evs.ssh.core.BuildConfig;
-
 /**
- * Packets used by {@link de.unipassau.isl.evs.ssh.core.network.ClientHandshakeHandler} and {@link de.unipassau.isl.evs.ssh.master.network.ServerHandshakeHandler}
+ * Packets used by {@link de.unipassau.isl.evs.ssh.core.network.ClientHandshakeHandler} and a ServerHandshakeHandler
  * to perform the initial handshake and authentication.
  *
  * @author Niko Fink
@@ -81,7 +79,7 @@ public abstract class HandshakePacket implements Serializable {
         }
 
         /**
-         * Serializable pendant to {@link BuildConfig}
+         * Serializable pendant to a BuildConfig
          */
         public static class SerializableBuildConfig implements Serializable {
             public final boolean debug;
@@ -104,7 +102,8 @@ public abstract class HandshakePacket implements Serializable {
             public static SerializableBuildConfig getInstance() {
                 for (String s : new String[]{"app", "slave", "master", "core"}) {
                     try {
-                        final String n = BuildConfig.class.getName().replaceAll("core", s);
+                        // TODO Read this from a BuildConfig like in Android
+                        final String n = "standalone";
                         final Class<?> clazz = Class.forName(n);
                         return new SerializableBuildConfig(clazz);
                     } catch (ReflectiveOperationException ignore) {

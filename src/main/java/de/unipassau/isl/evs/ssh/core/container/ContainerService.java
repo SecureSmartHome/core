@@ -47,7 +47,6 @@ public class ContainerService implements Service, Container{
     public void onCreate() {
         logger.debug("onCreate:called");
         try {
-            container.register(Scheduler.KEY, new Scheduler());
             init();
         } catch (StartupException e) {
             logger.error("Could not start Service " + getClass().getSimpleName(), e);
