@@ -30,7 +30,7 @@ import de.ncoder.typedmap.Key;
 import de.unipassau.isl.evs.ssh.core.CoreConstants;
 import de.unipassau.isl.evs.ssh.core.container.AbstractComponent;
 import de.unipassau.isl.evs.ssh.core.container.Container;
-import de.unipassau.isl.evs.ssh.core.container.ContainerService;
+import de.unipassau.isl.evs.ssh.core.keyvaluestore.SimpleKeyValueStore;
 import de.unipassau.isl.evs.ssh.core.messaging.IncomingDispatcher;
 import de.unipassau.isl.evs.ssh.core.schedule.ExecutionServiceComponent;
 import de.unipassau.isl.evs.ssh.core.sec.DeviceConnectInformation;
@@ -203,7 +203,7 @@ public class Client extends AbstractComponent {
         boolean shouldReconnectTCP = shouldReconnectTCP();
         if (address != null && !shouldReconnectTCP) {
             // if too many attempts failed with the last address, retry with the configured address
-            editPrefs().setLastAddress(null).commit();
+            editPrefs().setLastAddress(null);
             lastDisconnect = 0;
             disconnectsInARow = 0;
             shouldReconnectTCP = true;
@@ -350,13 +350,12 @@ public class Client extends AbstractComponent {
         if (token != null) {
             editor.setActiveRegistrationToken(token);
         }
-        editor.commit();
         addressChanged(address);
     }
 
     public void onMasterConfigured(InetSocketAddress address) {
         logger.info("master configured as " + address);
-        editPrefs().setConfiguredAddress(address).commit();
+        editPrefs().setConfiguredAddress(address);
         addressChanged(address);
     }
 
@@ -441,8 +440,8 @@ public class Client extends AbstractComponent {
         }
     }
 
-    private SharedPreferences getSharedPrefs() {
-        return requireComponent(ContainerService.KEY_CONTEXT).getSharedPreferences();
+    private SimpleKeyValueStore getSharedPrefs() {
+        return requireComponent(SimpleKeyValueStore.KEY);
     }
 
     /**
@@ -450,7 +449,7 @@ public class Client extends AbstractComponent {
      * @see de.unipassau.isl.evs.ssh.core.network.handshake.HandshakePacket.ActiveRegistrationRequest
      */
     public String getActiveRegistrationToken() {
-        return getSharedPrefs().getString(PREF_TOKEN_ACTIVE, null);
+        return getSharedPrefs().getString(PREF_TOKEN_ACTIVE);
     }
 
     /**
@@ -467,7 +466,7 @@ public class Client extends AbstractComponent {
      */
     @Nullable
     public String getPassiveRegistrationToken() {
-        return getSharedPrefs().getString(PREF_TOKEN_PASSIVE, null);
+        return getSharedPrefs().getString(PREF_TOKEN_PASSIVE);
     }
 
     /**
@@ -508,9 +507,9 @@ public class Client extends AbstractComponent {
 
     @Nullable
     private InetSocketAddress getPrefsAddress(String prefsHost, String prefsPort) {
-        final SharedPreferences prefs = getSharedPrefs();
-        final String host = prefs.getString(prefsHost, null);
-        final int port = prefs.getInt(prefsPort, -1);
+        final SimpleKeyValueStore prefs = getSharedPrefs();
+        final String host = prefs.getString(prefsHost);
+        final int port = prefs.getInt(prefsPort);
         if (host == null || port < 0) {
             return null;
         } else {
@@ -522,13 +521,13 @@ public class Client extends AbstractComponent {
      * @return an editor for modifying all preferences related to the client
      */
     public PrefEditor editPrefs() {
-        return new PrefEditor(getSharedPrefs().edit());
+        return new PrefEditor(getSharedPrefs());
     }
 
     public static class PrefEditor {
-        private final SharedPreferences.Editor editor;
+        private final SimpleKeyValueStore editor;
 
-        public PrefEditor(SharedPreferences.Editor editor) {
+        public PrefEditor(SimpleKeyValueStore editor) {
             this.editor = editor;
         }
 
@@ -570,20 +569,12 @@ public class Client extends AbstractComponent {
 
         private void setPrefsAddress(@Nullable InetSocketAddress address, String prefHost, String prefPort) {
             if (address == null) {
-                editor.remove(prefPort);
-                editor.remove(prefHost);
+                editor.removeString(prefPort);
+                editor.removeString(prefHost);
             } else {
                 editor.putInt(prefPort, address.getPort());
                 editor.putString(prefHost, address.getHostString());
             }
-        }
-
-        public boolean commit() {
-            return editor.commit();
-        }
-
-        public void apply() {
-            editor.apply();
         }
     }
 

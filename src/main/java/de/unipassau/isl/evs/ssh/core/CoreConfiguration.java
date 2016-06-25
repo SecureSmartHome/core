@@ -3,25 +3,29 @@ package de.unipassau.isl.evs.ssh.core;
 import de.ncoder.typedmap.Key;
 import de.unipassau.isl.evs.ssh.core.container.AbstractComponent;
 import de.unipassau.isl.evs.ssh.core.container.Container;
+import de.unipassau.isl.evs.ssh.core.container.StartupException;
 import org.apache.commons.configuration.ConfigurationException;
 import org.apache.commons.configuration.HierarchicalINIConfiguration;
+import org.jetbrains.annotations.NotNull;
 
 import java.util.NoSuchElementException;
 
 /**
  * Created by popeye on 6/21/16.
  */
-public class CoreConfiguration extends AbstractComponent {
+public abstract class CoreConfiguration extends AbstractComponent {
     public static final Key<CoreConfiguration> KEY = new Key<>(CoreConfiguration.class);
 
     protected HierarchicalINIConfiguration config;
+    protected ConfigurationDefaults defaults;
 
     @Override
     public void init(Container container) {
+        defaults = loadDefaults();
         try {
-            config = new HierarchicalINIConfiguration("/etc/securesmarthome.conf");
-        } catch (ConfigurationException ignored) {
-            config = new HierarchicalINIConfiguration();
+            config = new HierarchicalINIConfiguration(defaults.mainConfigFile);
+        } catch (ConfigurationException e) {
+            throw new StartupException(e);
         }
         super.init(container);
     }
@@ -47,15 +51,31 @@ public class CoreConfiguration extends AbstractComponent {
 
         }
 
-        return path != null ? path : "/var/lib/SecureSmartHome/keystore";
+        return path != null ? path : defaults.keystoreFile;
 
     }
 
     public String getLocation() {
         try {
-            return config.getSection("Settings").getString("location");
+            return config.getSection("settings").getString("location");
         } catch (NoSuchElementException e) {
             return null;
+        }
+    }
+
+    /**
+     * Loads platform specific defaults.
+     */
+    protected abstract ConfigurationDefaults loadDefaults();
+
+    public class ConfigurationDefaults {
+        private final String mainConfigFile;
+        private final String keystoreFile;
+
+
+        public ConfigurationDefaults(@NotNull String mainConfigFile, @NotNull String keystoreFile) {
+            this.mainConfigFile = mainConfigFile;
+            this.keystoreFile = keystoreFile;
         }
     }
 
